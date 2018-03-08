@@ -1,11 +1,9 @@
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-fig1 = plt.figure(num=None, figsize=(10, 10), dpi=80, facecolor='w', edgecolor='k')
-
-#vector_field = (np.ones((100, 100, 2))
-vector_field = None
+fig1 = plt.figure(num=None, figsize=(6.7, 6.7), dpi=80, facecolor='w', edgecolor='k')
 
 point = np.random.rand(2)
 speed = np.random.rand(2)/2
@@ -18,14 +16,16 @@ line_x = [point[0]]
 line_y = [point[1]]
 line_len = 200
 
+p1_x = 0.5
+p1_y = 0.5
 
-dt = 0.005
+dt = 0.002
 
 plt.xlim(0, 1)
 plt.ylim(0, 1)
 
 l, = plt.plot(point[0], point[1], '-')
-plt.plot(0.5, 0.5, 'o', color='r', markersize=20)
+plt.plot(p1_x, p1_y, 'o', color='black', markersize=20)
 
 particles = []
 
@@ -41,20 +41,20 @@ class Particle:
         self.p, = plt.plot(self.r[0], self.r[1], 'o', markersize=3)
 
     def update_r(self, vec_field):
-            x = clamp(int(self.r[0]*100), 0, 99)
-            y = clamp(int(self.r[1]*100), 0, 99)
+        x = clamp(int(self.r[0]*100), 0, 99)
+        y = clamp(int(self.r[1]*100), 0, 99)
 
-            f_x = vector_field[x][y][0]
-            f_y = vector_field[x][y][1]
+        f_x = vec_field[x][y][0]
+        f_y = vec_field[x][y][1]
 
-            dv_x = f_x/self.m
-            dv_y = f_y/self.m
+        dv_x = f_x/self.m
+        dv_y = f_y/self.m
     
-            self.v[0] += dv_x*dt
-            self.v[1] += dv_y*dt
-    
-            self.r[0] += self.v[0]*dt
-            self.r[1] += self.v[1]*dt
+        self.v[0] += dv_x*dt
+        self.v[1] += dv_y*dt
+
+        self.r[0] += self.v[0]*dt
+        self.r[1] += self.v[1]*dt
 
     def update_line(self):
         self.line_x.append(self.r[0])
@@ -90,54 +90,83 @@ class Particle:
         self.l.set_data(0, 0)
         self.p.set_data(-1, -1)
 
+class Field:
+
+    field = None
+    
+    def __init__(self, x, y):
+        self.field = self.field1(x, y, 5000)
+        self.x = x
+        self.y = y
+
+    def field1(self, x, y, k):
+        a = np.ones((101, 101, 2))
+        for i in range(101):
+            for j in range(101):
+                if i == p1_x*100 and j == p1_y*100:
+                    continue
+                r = np.array([x*100-i, y*100-j])
+                a[i][j] = np.sqrt(r[0]**2+r[1]**2)**(-3) * r - 40 * np.sqrt(r[0]**2+r[1]**2)**(-5) * r
+        print(np.sum(a))
+        print()
+        return a*k
+
+    def field2(self, x, y, k):
+        pass
+
 class Ani:
+
+    vector_field = None
     
     def __init__(self, interval, i):
         self.time = 0
-        self.ani = animation.FuncAnimation(fig1, self.class_func, i, interval=interval)
-
-        
+        self.ani = animation.FuncAnimation(fig1, self.class_func, frames=np.arange(0, i), interval=interval)
+        self.vector_field = Field(p1_x, p1_y)
+        self.tp = self.time
+ 
     def class_func(self, num):
+        
         for p in particles:
             p.wall_check()
-            p.update_r(vector_field)
+            p.update_r(self.vector_field.field)
             p.update_line()
-            p.collision_check(0.5, 0.5)
+            p.collision_check(p1_x, p1_y)
         self.time += dt
+        if self.tp != "{0:.2f}".format(self.time):
+            self.tp = "{0:.2f}".format(self.time)
+            print(self.tp)
+        
         plt.title("Particles: "+ str(len(particles)) + "  Time: " + str("{0:.1f}".format(self.time)))
         return
 
-def grav(x, y):
-    a = np.ones((101, 101, 2))
-    for i in range(101):
-        for j in range(101):
-            if i == 50 and j == 50:
-                continue
-            r = np.array([x*100-i, y*100-j])
-            a[i][j] = np.sqrt(r[0]**2+r[1]**2)**(-3) * r - 40 * np.sqrt(r[0]**2+r[1]**2)**(-5) * r
-    print(np.sum(a))
-    print()
-    return a*1000
-
-vector_field = grav(0.5, 0.5)
 
 def main():
 
-    time = 0
-    
-    for i in range(100):
-        th = np.random.random()*2*np.pi
-        r = 0.1+np.random.random()*0.5
-        x = 0.5+np.cos(th)*r
-        y = 0.5+np.sin(th)*r
-        v = np.random.random()
-        vx = np.cos(th+np.pi/2+np.random.random()*0.2)*v
-        vy = np.sin(th+np.pi/2+np.random.random()*0.2)*v
-        p = Particle([x, y], [vx, vy], 1)
-        particles.append(p)
+    if True:
+        for i in range(100):
+            th = np.random.random()*2*np.pi
+            r = 0.1+np.random.random()*0.4
+            x = p1_x+np.cos(th)*r
+            y = p1_y+np.sin(th)*r
+            v = np.random.random()
+            vx = np.cos(th+np.pi/2+np.random.random()*0.2)*v
+            vy = np.sin(th+np.pi/2+np.random.random()*0.2)*v
+            p = Particle([x, y], [vx, vy], 1)
+            particles.append(p)
 
-    ani = Ani(1, 100)
-    plt.show()
+    if False:
+        for i in range(100):
+            x = 0.05 + 0.1*(i%10)
+            y = 0.05 + int(i/10)/10
+            p = Particle([x, y], [0, 0], 1)
+            particles.append(p)
+
+    ani = Ani(17, 400)
+    if len(sys.argv) > 1 and sys.argv[1] == 'save':
+        ani.ani.save('field.gif', writer="imagemagick")
+    else:
+        plt.show()
+
 
 def clamp(n, minn, maxn):
     return max(min(maxn, n), minn)
