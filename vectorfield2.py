@@ -3,9 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import random
+import time
 
 fig1 = plt.figure(num=None, figsize=(10, 10), dpi=80, facecolor='w', edgecolor='k')
 
+"""
 point = np.random.rand(2)
 speed = np.random.rand(2)/2
 mass = 1
@@ -15,9 +17,6 @@ speed = np.array([0, 0.5])
 
 line_x = [point[0]]
 line_y = [point[1]]
-line_len = 25
-
-dt = 0.002
 
 
 plt.xlim(0, 1)
@@ -25,8 +24,17 @@ plt.ylim(0, 1)
 
 l, = plt.plot(point[0], point[1], '-')
 #plt.plot(p1_x, p1_y, 'o', color='black', markersize=20)
+"""
 
+resolution = 250
+field_constant = 50
+line_len = 10
+dt = 0.0005
 particles = []
+
+# saving
+steps = 400
+file_name = 'field.gif'
 
 class Particle:
 
@@ -37,18 +45,18 @@ class Particle:
         self.line_x = [self.r[0]]
         self.line_y = [self.r[1]]
         self.l, = plt.plot(self.r[0], self.r[1], '-', color="w")
-        self.p, = plt.plot(self.r[0], self.r[1], 'o', markersize=3, color="w")
+        self.p, = plt.plot(self.r[0], self.r[1], 'o', markersize=6, color="w")
 
     def update_r(self, vec_field):
-        x = clamp(int(self.r[0]*100), 0, 99)
-        y = clamp(int(self.r[1]*100), 0, 99)
+        x = clamp(int(self.r[0]*resolution-1), 0, resolution-1)
+        y = clamp(int(self.r[1]*resolution-1), 0, resolution-1)
 
         f_x = vec_field[x][y][0]
         f_y = vec_field[x][y][1]
 
         dv_x = f_x/self.m
         dv_y = f_y/self.m
-    
+                
         self.v[0] += dv_x*dt
         self.v[1] += dv_y*dt
 
@@ -116,7 +124,6 @@ class Field:
         print(np.sum(a))
         print()
         return a*k
-
     def field2(self, x, y, t, k):
         a = np.ones((101, 101, 2))
         for i in range(101):
@@ -152,13 +159,15 @@ class Field:
         return a*k
     """
     def particle_field(self, t, k):
-        a = np.ones((101, 101, 2))
+        a = np.ones((resolution, resolution, 2))
         form = lambda r, k: k * r**(-2)
-        for i in range(101):
-            for j in range(101):
+        for i in range(resolution):
+            for j in range(resolution):
                 for p in particles:
-                    r = np.array([j/101-p.r[0], (1-p.r[1])-i/101])
+                    r = np.array([(j+0.5)/resolution-p.r[0], (1-p.r[1])-(i+0.5)/resolution])
                     ab = np.sqrt(r[0]**2+r[1]**2)
+                    if ab < 1/resolution:
+                        continue
                     a[i][j] += form(ab, k)*r/ab
         return a
 
@@ -167,36 +176,42 @@ class Ani:
     vector_field = None
     
     def __init__(self, interval, i):
+        self.p_time = time.clock()
         self.time = 0
         self.ani = animation.FuncAnimation(fig1, self.class_func, frames=np.arange(0, i), interval=interval)
         self.vector_field = Field()
         self.tp = self.time
-        self.field = self.vector_field.particle_field(self.time, -20)
- 
+        self.field = self.vector_field.particle_field(self.time, field_constant)
+        self.im = plt.imshow(self.field_str(100), interpolation="nearest", extent=(0,1,0,1), cmap="viridis")
+        self.cb = plt.colorbar(self.im)
+        
     def class_func(self, num):
         
         for p in particles:
             p.wall_check1()
             p.update_r(self.field)
             p.update_line()
-        self.field = self.vector_field.particle_field(self.time, -20)
+        self.field = self.vector_field.particle_field(self.time, field_constant)
+        self.im.set_data(self.field_str(100))
         
         self.time += dt
-        if self.tp != "{0:.2f}".format(self.time):
-            self.tp = "{0:.2f}".format(self.time)
-            print(self.tp)
-        
-        im = plt.imshow([[np.clip(np.log(np.sqrt(x**2+y**2)/5), 0, 1000) for x, y in f] for f in self.field], interpolation="nearest", extent=(0,1,0,1), cmap="viridis")
-        cb = plt.colorbar(im)
-        
+        if int(self.time%0.001*10000) == 0:
+            print()
+            print("Progress: "+str("{0:.1f}".format(self.time/(steps*dt)*100))+"%")
+            
         plt.title("Particles: "+ str(len(particles)) + "  Time: " + str("{0:.1f}".format(self.time)))
         return
 
+    def field_str(self, clip, log=True):
+        if log:
+            return [[np.clip(np.log(np.sqrt(x**2+y**2)/5), 0, clip) for x, y in f] for f in self.field]
+        else:
+            return [[np.clip(np.sqrt(x**2+y**2)/5, 0, clip) for x, y in f] for f in self.field]
 
 def main():
 
     if True:
-        for i in range(2):
+        for i in range(20):
             th = np.random.random()*2*np.pi
             x = random.random()
             y = random.random()
@@ -213,9 +228,9 @@ def main():
             p = Particle([x, y], [0, 0], 1)
             particles.append(p)
 
-    ani = Ani(17, 400)
+    ani = Ani(17, steps)
     if len(sys.argv) > 1 and sys.argv[1] == 'save':
-        ani.ani.save('field.gif', writer="imagemagick")
+        ani.ani.save('field.mp4', writer="ffmpeg")
     else:
         plt.show()
 
