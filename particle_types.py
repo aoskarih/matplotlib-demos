@@ -34,37 +34,47 @@ def force1(p1, p2, t):
     return f
 
 def force_pit(p1, p2, t):
+    if p1.c == p2.c:
+        return 0
+    
     d = np.array(p2.r-p1.r)
-    l = 100*np.sqrt(np.dot(d,d))
+    l = np.sqrt(np.dot(d,d))
     if l == 0:
         return np.array([0.0,0.0])
-    f =  k * p1.m * p2.m * (l**(-3) - 20 * l**(-5)) * d
+    f = k * p1.m * p2.m * (l**(-4) + 100 * (p1.c * p2.c) * l**(-2)) * d/l
     return f
 
 def potential(r, m):
     return abs(-k * m / r)
 
-def particles_group():
-    x = random.randint(20, 80)/100
-    y = random.randint(20, 80)/100
-    particles.append(Particle(np.array([x, y]), np.random.rand(2)*starting_speed, 100))
-    for i in range(8):
-        r = np.array([x, y])
-        r += 0.045 * np.array([np.cos(i/4 * np.pi)+random.random()/20, np.sin(i/4 * np.pi)+random.random()/20])
-        particles.append(Particle(r, np.array([0.0, 0.0]), 0.1))
-
 def particles_big_n_small():
-
-    for _ in range(part_n):
-        particles_group()
-        
+    b = int(part_n/4 + 1)
+    s = int(3*part_n/4 + 1)
+    for _ in range(b):
+        th = np.random.random()*2*np.pi
+        x = random.random()
+        y = random.random()
+        v = np.random.random()*starting_speed
+        vx = 0.0 #np.cos(th+np.pi/2+np.random.random()*0.2)*v
+        vy = 0.0 #np.sin(th+np.pi/2+np.random.random()*0.2)*v
+        p = Particle(np.array([x, y]), np.array([vx, vy]), 1000, 1)
+        particles.append(p)
+    for _ in range(s):
+        th = np.random.random()*2*np.pi
+        x = random.random()
+        y = random.random()
+        v = np.random.random()*starting_speed
+        vx = 0.0 #np.cos(th+np.pi/2+np.random.random()*0.2)*v
+        vy = 0.0 #np.sin(th+np.pi/2+np.random.random()*0.2)*v
+        p = Particle(np.array([x, y]), np.array([vx, vy]), 10, -1)
+        particles.append(p)
 
 def particles_uniform():
     for i in range(10):
         for j in range(10):
             x = i/10 + 0.05
             y = j/10 + 0.05
-            p = Particle(np.array([x, y]), np.array([0.0, 0.0]), 300)
+            p = Particle(np.array([x, y]), np.array([0.0, 0.0]), 300, 1)
             particles.append(p)
 
 def particles_random():
@@ -75,22 +85,22 @@ def particles_random():
         v = np.random.random()*starting_speed
         vx = np.cos(th+np.pi/2+np.random.random()*0.2)*v
         vy = np.sin(th+np.pi/2+np.random.random()*0.2)*v
-        p = Particle(np.array([x, y]), np.array([vx, vy]), 2**random.randint(4, 13))
+        p = Particle(np.array([x, y]), np.array([vx, vy]), 2**random.randint(4, 13), random.choice([1, -1]))
         particles.append(p)
 
 
 # simulation params
 #random.seed(934)
-resolution = 100        # resolution of potential visuals
-k = -150                # strength (and direction) of force
+resolution = 0        # resolution of potential visuals
+k = -15                # strength (and direction) of force
 line_len = 15           # length of line that trails particles (steps)
 dt = 0.000001           # time step
-part_n = 20           # number of particles at the beginning
-particle_creation = particles_random
+part_n = 100           # number of particles at the beginning
+particle_creation = particles_big_n_small
 
 starting_speed = 0.002  # keep it small
 
-force = force1       # choose your force (function)
+force = force_pit       # choose your force (function)
 
 
 if not resolution:
@@ -101,15 +111,16 @@ particles = []
 
 
 # saving
-steps = 400
+steps = 2000
 file_name = random_word.get_random_name()+'.mp4'
 
 class Particle:
 
-    def __init__(self, pos, vel, mass):
+    def __init__(self, pos, vel, mass, charge):
         self.r = pos
         self.v = vel
         self.m = mass
+        self.c = charge
         self.to_be_deleted = False
         self.ignore = False
         self.line_x = [self.r[0]]
@@ -123,7 +134,7 @@ class Particle:
             f += force(self, p, t)
         dv = f/self.m * dt
         self.v += dv * dt
-        if np.dot(self.v, self.v) > 0.1:
+        if np.dot(self.v, self.v) > 0.02:
             self.to_be_deleted = True
         self.r += self.v
 
@@ -146,7 +157,7 @@ class Particle:
                 pm2 = p.m * p.v
                 v3 = (pm1+pm2)/(self.m + p.m)
                 r3 = (self.m*self.r+p.m*p.r)/((self.m + p.m))
-                npar = Particle(r3, v3, self.m + p.m)
+                npar = Particle(r3, v3, self.m + p.m, 1)
                 npar.ignore = True
                 particles.append(npar)
                 self.to_be_deleted = True
